@@ -20,10 +20,31 @@ class GallerixSpider
     artists = get_artists_list
     # puts artists
 
+    # # single thread
+    # artists.each do |artist_url|
+    #   download_gallery(artist_url)
+    #   # break # !!!!!!!!!!!!!!!!!!!!
+    # end
+
+    # multi thread
+    thread_storage = []
+    thread_max = 4
     artists.each do |artist_url|
-      download_gallery(artist_url)
-      # break # !!!!!!!!!!!!!!!!!!!!
+      if thread_storage.size <= thread_max-1
+        thread_storage << Thread.new(artist_url) do |link|
+          download_gallery(link)
+        end
+      else
+        while thread_storage.size == thread_max
+          thread_storage.delete_if{|th| not th.alive?}
+        end
+
+        thread_storage << Thread.new(artist_url) do |link|
+          download_gallery(link)
+        end
+      end
     end
+    thread_storage.each {|t| t.join()}
 
     puts "download complete in #{Time.now - t1} sec"
   end
@@ -75,7 +96,6 @@ private
 
     pic_page_urls = []
     page.css("td[id='n_mainleft']").css('a').each do |href|
-      # pic_page_urls << href['href'] if (not (href['href'] =~ /#{artist_id}/).nil?)
       pic_page_urls << href['href'] if (not (href['href'] =~ /\/storeroom\/#{artist_id}/).nil?) || (not (href['href'] =~ /^\/album\/.+\/pic\/.+$/).nil?)
     end
 
@@ -137,7 +157,6 @@ private
     # medium size
     pic_urls = []
     page.css("td[id='n_mainleft']").css('img').each do |img|
-      # pic_urls << img['src'] if (not (img['src'] =~ /\/#{image_id}/).nil?) || (img['class'] == "ac_pic")
       pic_urls << img['src'] if (img['class'] == "ac_pic")
     end
 
